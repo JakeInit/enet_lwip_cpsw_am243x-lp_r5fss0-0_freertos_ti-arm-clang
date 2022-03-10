@@ -54,7 +54,6 @@ void frertos_main(void *args)
     vTaskDelete(NULL);
 }
 
-
 int main()
 {
     /* init SOC specific modules */

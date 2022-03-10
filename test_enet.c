@@ -90,8 +90,7 @@ void print_cpu_load()
     }
 }
 
-void EnetApp_initLinkArgs(EnetPer_PortLinkCfg *linkArgs,
-                          Enet_MacPort macPort)
+void EnetApp_initLinkArgs(EnetPer_PortLinkCfg *linkArgs, Enet_MacPort macPort)
 {
     EnetPhy_Cfg *phyCfg = &linkArgs->phyCfg;
     EnetMacPort_LinkCfg *linkCfg = &linkArgs->linkCfg;
@@ -191,7 +190,7 @@ int enet_lwip_example(void *args)
 
     Board_cpswMuxSel();
 
-    DebugP_log("==========================\r\n");
+    DebugP_log("\n==========================\r\n");
     DebugP_log("      ENET LWIP App       \r\n");
     DebugP_log("==========================\r\n");
 
@@ -207,10 +206,7 @@ int enet_lwip_example(void *args)
     }
 #endif
 
-    EnetApp_getEnetInstInfo(&enetType,
-                            &instId,
-                             macPortList,
-                             &numMacPorts);
+    EnetApp_getEnetInstInfo(&enetType, &instId, macPortList, &numMacPorts);
     EnetAppUtils_enableClocks(enetType, instId);
 
     /* no stdio-buffering, please! */

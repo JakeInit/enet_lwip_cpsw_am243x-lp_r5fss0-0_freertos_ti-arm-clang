@@ -47,7 +47,8 @@ void print_app_header(void);
 void start_application(void *arg);
 
 /* used as indices into kLabel[] */
-enum {
+enum
+{
 	KCONV_UNIT,
 	KCONV_KILO,
 	KCONV_MEGA,
@@ -56,22 +57,22 @@ enum {
 
 
 /* used as type of print */
-enum measure_t {
+enum measure_t
+{
 	BYTES,
 	SPEED
 };
 
 /* Report type */
-enum report_type {
-	/* The Intermediate report */
-	INTER_REPORT,
-	/* The server side test is done */
-	UDP_DONE_SERVER,
-	/* Remote side aborted the test */
-	UDP_ABORTED_REMOTE
+enum report_type
+{
+	INTER_REPORT,      // The Intermediate report
+	UDP_DONE_SERVER,   // The server side test is done
+	UDP_ABORTED_REMOTE // Remote side aborted the test
 };
 
-struct interim_report {
+struct interim_report
+{
 	u64_t start_time;
 	u64_t last_report_time;
 	u32_t total_bytes;
@@ -79,7 +80,8 @@ struct interim_report {
 	u32_t cnt_dropped_datagrams;
 };
 
-struct perf_stats {
+struct perf_stats
+{
 	u8_t client_id;
 	u64_t start_time;
 	u64_t end_time;
@@ -91,12 +93,10 @@ struct perf_stats {
 	struct interim_report i_report;
 };
 
-/* seconds between periodic bandwidth reports */
-#define INTERIM_REPORT_INTERVAL 5
+#define INTERIM_REPORT_INTERVAL 5 // seconds between periodic bandwidth reports
 
-/* server port to listen on/connect to */
-#define UDP_CONN_PORT 5001
+#define UDP_CONN_PORT 5001 // server port to listen on/connect to
 
-#define UDP_RECV_BUFSIZE 1500
+#define UDP_RECV_BUFSIZE 1500 // Change to 8192 for Parakeet
 
 #endif /* __UDP_PERF_SERVER_H_ */

@@ -1,8 +1,8 @@
 /**
  * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
  * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
- * @cliArgs --device "AM243x_ALX_beta" --package "ALX" --part "ALX" --context "r5fss0-0" --product "MCU_PLUS_SDK@07.03.01"
- * @versions {"data":"2021040816","timestamp":"2021040816","tool":"1.8.1+1900","templates":null}
+ * @cliArgs --device "AM243x_ALX_beta" --package "ALX" --part "ALX" --context "r5fss0-0" --product "MCU_PLUS_SDK_AM243x@08.01.00"
+ * @versions {"tool":"1.10.0+2163"}
  */
 
 /**
@@ -18,8 +18,8 @@ const mpu_armv71 = mpu_armv7.addInstance();
 const mpu_armv72 = mpu_armv7.addInstance();
 const mpu_armv73 = mpu_armv7.addInstance();
 const mpu_armv74 = mpu_armv7.addInstance();
+const mpu_armv75 = mpu_armv7.addInstance();
 const mpu_armv76 = mpu_armv7.addInstance();
-const mpu_armv77 = mpu_armv7.addInstance();
 const enet_cpsw  = scripting.addModule("/networking/enet_cpsw/enet_cpsw", {}, false);
 const enet_cpsw1 = enet_cpsw.addInstance();
 
@@ -28,12 +28,11 @@ const enet_cpsw1 = enet_cpsw.addInstance();
  */
 gpio1.$name                = "CONFIG_GPIO0";
 gpio1.pinDir               = "OUTPUT";
-gpio1.GPIO.gpioPin.$assign = "AA11";
+gpio1.GPIO.gpioPin.$assign = "ball.AA11";
 
 pruicss1.$name = "CONFIG_PRU_ICSS0";
 
 debug_log.enableUartLog        = true;
-debug_log.enableCssLog         = false;
 debug_log.uartLog.$name        = "CONFIG_UART0";
 debug_log.uartLog.UART.$assign = "USART0";
 
@@ -57,36 +56,36 @@ mpu_armv74.accessPermissions = "Supervisor RD+WR, User RD";
 mpu_armv74.baseAddr          = 0x70000000;
 mpu_armv74.size              = 23;
 
-mpu_armv76.$name             = "CONFIG_MPU_REGION5";
-mpu_armv76.accessPermissions = "Supervisor RD+WR, User RD";
-mpu_armv76.baseAddr          = 0xA5000000;
-mpu_armv76.size              = 23;
-mpu_armv76.attributes        = "NonCached";
+mpu_armv75.$name             = "CONFIG_MPU_REGION5";
+mpu_armv75.accessPermissions = "Supervisor RD+WR, User RD";
+mpu_armv75.baseAddr          = 0xA5000000;
+mpu_armv75.size              = 23;
+mpu_armv75.attributes        = "NonCached";
 
-mpu_armv77.$name    = "CONFIG_MPU_REGION6";
-mpu_armv77.size     = 27;
-mpu_armv77.baseAddr = 0x60000000;
+mpu_armv76.$name    = "CONFIG_MPU_REGION6";
+mpu_armv76.size     = 27;
+mpu_armv76.baseAddr = 0x60000000;
 
 enet_cpsw1.$name                 = "CONFIG_ENET_CPSW0";
 enet_cpsw1.phyToMacInterfaceMode = "RGMII";
-enet_cpsw1.phyAddr1               = 3;
-enet_cpsw1.phyAddr2               = 15;
+enet_cpsw1.phyAddr1              = 3;
+enet_cpsw1.phyAddr2              = 15;
 enet_cpsw1.MDIO.$assign          = "MDIO0";
-enet_cpsw1.MDIO.MDC.$assign      = "W1";
-enet_cpsw1.MDIO.MDIO.$assign     = "V2";
+enet_cpsw1.MDIO.MDC.$assign      = "ball.W1";
+enet_cpsw1.MDIO.MDIO.$assign     = "ball.V2";
 enet_cpsw1.RGMII.$assign         = "RGMII1";
-enet_cpsw1.RGMII.RD0.$assign     = "T5";
-enet_cpsw1.RGMII.RD1.$assign     = "R2";
-enet_cpsw1.RGMII.RD2.$assign     = "U2";
-enet_cpsw1.RGMII.RD3.$assign     = "T1";
-enet_cpsw1.RGMII.RX_CTL.$assign  = "Y3";
-enet_cpsw1.RGMII.RXC.$assign     = "U1";
-enet_cpsw1.RGMII.TD0.$assign     = "Y14";
-enet_cpsw1.RGMII.TD1.$assign     = "Y16";
-enet_cpsw1.RGMII.TD2.$assign     = "U13";
-enet_cpsw1.RGMII.TD3.$assign     = "AA14";
-enet_cpsw1.RGMII.TX_CTL.$assign  = "W16";
-enet_cpsw1.RGMII.TXC.$assign     = "W13";
+enet_cpsw1.RGMII.RD0.$assign     = "ball.T5";
+enet_cpsw1.RGMII.RD1.$assign     = "ball.R2";
+enet_cpsw1.RGMII.RD2.$assign     = "ball.U2";
+enet_cpsw1.RGMII.RD3.$assign     = "ball.T1";
+enet_cpsw1.RGMII.RX_CTL.$assign  = "ball.Y3";
+enet_cpsw1.RGMII.RXC.$assign     = "ball.U1";
+enet_cpsw1.RGMII.TD0.$assign     = "ball.Y14";
+enet_cpsw1.RGMII.TD1.$assign     = "ball.Y16";
+enet_cpsw1.RGMII.TD2.$assign     = "ball.U13";
+enet_cpsw1.RGMII.TD3.$assign     = "ball.AA14";
+enet_cpsw1.RGMII.TX_CTL.$assign  = "ball.W16";
+enet_cpsw1.RGMII.TXC.$assign     = "ball.W13";
 
 /**
  * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
@@ -94,5 +93,5 @@ enet_cpsw1.RGMII.TXC.$assign     = "W13";
  * re-solve from scratch.
  */
 gpio1.GPIO.$suggestSolution                 = "GPIO0";
-debug_log.uartLog.UART.RXD.$suggestSolution = "B10";
-debug_log.uartLog.UART.TXD.$suggestSolution = "B11";
+debug_log.uartLog.UART.RXD.$suggestSolution = "ball.B10";
+debug_log.uartLog.UART.TXD.$suggestSolution = "ball.B11";

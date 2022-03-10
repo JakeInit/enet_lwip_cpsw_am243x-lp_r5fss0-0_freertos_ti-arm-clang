@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?ccsproject version="1.0"?>
+<projectOptions>
+	<ccsVersion value="11.1.0"/>
+	<deviceVariant value="Cortex R.AM2434_ALX"/>
+	<deviceFamily value="TMS470"/>
+	<deviceEndianness value="little"/>
+	<codegenToolVersion value="TICLANG_1.3.0.LTS"/>
+	<isElfFormat value="true"/>
+	<connection value="common/targetdb/connections/TIXDS110_Connection.xml"/>
+	<rts value=""/>
+	<createSlaveProjects value=""/>
+	<ignoreDefaultDeviceSettings value="true"/>
+	<ignoreDefaultCCSSettings value="true"/>
+	<templateProperties value="id=example.projectspec.enet_lwip_cpsw_am243x-lp_r5fss0-0_freertos_ti-arm-clang"/>
+	<origin value="/home/jake/ti/mcu_plus_sdk_am243x_08_01_00_36/examples/networking/lwip/enet_lwip_cpsw/am243x-lp/r5fss0-0_freertos/ti-arm-clang/example.projectspec"/>
+	<filesToOpen value=""/>
+</projectOptions>

@@ -79,8 +79,6 @@
 #include "examples/tftp/tftp_example.h"
 #include "examples/sntp/sntp_example.h"
 #include "examples/mqtt/mqtt_example.h"
-#include "udp_iperf.h"
-
 #include "examples/httpd/cgi_example/cgi_example.h"
 #include "examples/httpd/fs_example/fs_example.h"
 #include "examples/httpd/ssi_example/ssi_example.h"
@@ -92,6 +90,7 @@
 /* include the port-dependent configuration */
 #include "lwipcfg.h"
 #include "test_enet_lwip.h"
+#include "UdpSocket.h"
 
 #ifndef LWIP_EXAMPLE_APP_ABORT
 #define LWIP_EXAMPLE_APP_ABORT() 0
@@ -174,7 +173,7 @@ static void apps_init(void)
   lwiperf_example_init();
 
   print_app_header();
-  sys_thread_new("UDP Iperf", start_application, NULL, DEFAULT_THREAD_STACKSIZE,
+  sys_thread_new("UDP Iperf", udpSocketOpen, NULL, DEFAULT_THREAD_STACKSIZE,
                              DEFAULT_THREAD_PRIO);
 }
 

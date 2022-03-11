@@ -84,13 +84,12 @@
 #include "examples/tftp/tftp_example.h"
 #include "examples/sntp/sntp_example.h"
 #include "examples/mqtt/mqtt_example.h"
-#include "udp_iperf.h"
-
 #include "examples/httpd/cgi_example/cgi_example.h"
 #include "examples/httpd/fs_example/fs_example.h"
 #include "examples/httpd/ssi_example/ssi_example.h"
 
 #include "default_netif.h"
+#include "UdpSocket.h"
 
 
 #if NO_SYS

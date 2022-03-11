@@ -45,11 +45,11 @@ StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StaticTask_t gMainTaskObj;
 TaskHandle_t gMainTask;
 
-void enet_lwip_example(void *args);
+void initParakeetApplication(void *args);
 
 void frertos_main(void *args)
 {
-    enet_lwip_example(NULL);
+    initParakeetApplication(NULL);
 
     vTaskDelete(NULL);
 }

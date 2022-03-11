@@ -133,7 +133,8 @@ extern "C" {
 /*                          Function Declarations                             */
 /* ========================================================================== */
 
-void main_loop(void * a0);
+void print_cpu_load();
+void runParakeetApplication(void * a0);
 
 /* ========================================================================== */
 /*                            Global Variables                                */

@@ -42,61 +42,13 @@
 
 #include <kernel/dpl/DebugP.h>
 
-#define INTERIM_REPORT_INTERVAL 5 // seconds between periodic bandwidth reports
-
 #define UDP_CONN_PORT 5001        // server port to listen on/connect to
 
-#define UDP_RECV_BUFSIZE 8192     // Was 1500
-
-/* used as indices into kLabel[] */
-enum
-{
-    KCONV_UNIT,
-    KCONV_KILO,
-    KCONV_MEGA,
-    KCONV_GIGA,
-};
-
-/* used as type of print */
-enum measure_t
-{
-    BYTES,
-    SPEED
-};
-
-/* Report type */
-enum report_type
-{
-    INTER_REPORT,      // The Intermediate report
-    UDP_DONE_SERVER,   // The server side test is done
-    UDP_ABORTED_REMOTE // Remote side aborted the test
-};
-
-struct interim_report
-{
-    u64_t start_time;
-    u64_t last_report_time;
-    u32_t total_bytes;
-    u32_t cnt_datagrams;
-    u32_t cnt_dropped_datagrams;
-};
-
-struct perf_stats
-{
-    u8_t client_id;
-    u64_t start_time;
-    u64_t end_time;
-    u64_t total_bytes;
-    u64_t cnt_datagrams;
-    u64_t cnt_dropped_datagrams;
-    u32_t cnt_out_of_order_datagrams;
-    s32_t expected_datagram_id;
-    struct interim_report i_report;
-};
+#define MAX_BUFFER_LENGTH 8192
 
 struct BufferData
 {
-    char buffer[UDP_RECV_BUFSIZE];
+    char buffer[MAX_BUFFER_LENGTH];
     unsigned int length;
 };
 

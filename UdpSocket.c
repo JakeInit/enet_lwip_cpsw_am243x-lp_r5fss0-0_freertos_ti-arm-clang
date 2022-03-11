@@ -36,16 +36,7 @@
 
 #include <kernel/dpl/ClockP.h>
 
-extern struct netif server_netif;
-static struct perf_stats server;
-
-int sock = 0;
-
-/* labels for formats [KMG] */
-const char udperf_kLabel[] = { ' ', 'K', 'M', 'G' };
-
-/* Report interval in ms */
-#define REPORT_INTERVAL_TIME (INTERIM_REPORT_INTERVAL * 1000)
+static int sock = 0;
 
 void print_app_header(void)
 {
@@ -56,120 +47,6 @@ static void print_udp_conn_stats(struct sockaddr_in from)
 {
 	DebugP_log("Connected to %s port %d\r\n", inet_ntoa(from.sin_addr),
 				ntohs(from.sin_port));
-
-	DebugP_log("[ ID] Interval\t     Transfer     Bandwidth\t");
-	DebugP_log("    Lost/Total Datagrams\r\n");
-}
-
-static void stats_buffer(char* outString,
-		double data, enum measure_t type)
-{
-	int conv = KCONV_UNIT;
-	const char *format;
-	double unit = 1024.0;
-
-	if (type == SPEED)
-		unit = 1000.0;
-
-	while (data >= unit && conv <= KCONV_GIGA)
-	{
-		data /= unit;
-		conv++;
-	}
-
-	/* Fit data in 4 places */
-	if (data < 9.995) //9.995 rounded to 10.0
-	{
-		format = "%4.2f %c"; // #.##
-	}
-	else if (data < 99.95) // 99.95 rounded to 100
-	{
-		format = "%4.1f %c"; // ##.#
-	}
-	else
-	{
-		format = "%4.0f %c"; // ####
-	}
-	sprintf(outString, format, data, udperf_kLabel[conv]);
-}
-
-/** The report function of a TCP server session */
-static void udp_conn_report(u64_t diff,
-		enum report_type report_type)
-{
-	u64_t total_len, cnt_datagrams, cnt_dropped_datagrams, total_packets;
-	u32_t cnt_out_of_order_datagrams;
-	double duration, bandwidth = 0;
-	char data[16], perf[16], time[64], drop[64];
-
-	if (report_type == INTER_REPORT)
-	{
-		total_len = server.i_report.total_bytes;
-		cnt_datagrams = server.i_report.cnt_datagrams;
-		cnt_dropped_datagrams = server.i_report.cnt_dropped_datagrams;
-	}
-	else
-	{
-		server.i_report.last_report_time = 0;
-		total_len = server.total_bytes;
-		cnt_datagrams = server.cnt_datagrams;
-		cnt_dropped_datagrams = server.cnt_dropped_datagrams;
-		cnt_out_of_order_datagrams = server.cnt_out_of_order_datagrams;
-	}
-
-	total_packets = cnt_datagrams + cnt_dropped_datagrams;
-	/* Converting duration from milliseconds to secs,
-	 * and bandwidth to bits/sec .
-	 */
-	duration = diff / 1000.0; /* secs */
-	if (duration)
-		bandwidth = (total_len / duration) * 8.0;
-
-	stats_buffer(data, total_len, BYTES);
-	stats_buffer(perf, bandwidth, SPEED);
-	/* On 32-bit platforms, xil_printf is not able to print
-	 * u64_t values, so converting these values in strings and
-	 * displaying results
-	 */
-	sprintf(time, "%4.1f-%4.1f sec",
-			(double)server.i_report.last_report_time,
-			(double)(server.i_report.last_report_time + duration));
-	sprintf(drop, "%4llu/%5llu (%.2g%%)", cnt_dropped_datagrams,
-			total_packets,
-			(100.0 * cnt_dropped_datagrams)/total_packets);
-	DebugP_log("[%3d] %s  %sBytes  %sbits/sec  %s\r\n\r", server.client_id,
-			time, data, perf, drop);
-
-	if (report_type == INTER_REPORT)
-	{
-		server.i_report.last_report_time += duration;
-	}
-	else if ((report_type != INTER_REPORT) && cnt_out_of_order_datagrams)
-	{
-		DebugP_log("[%3d] %s  %u datagrams received out-of-order\r\n\r",
-				server.client_id, time,
-				cnt_out_of_order_datagrams);
-	}
-}
-
-static void reset_stats(void)
-{
-	server.client_id++;
-	/* Save start time */
-	server.start_time = sys_now();
-	server.end_time = 0; /* ms */
-	server.total_bytes = 0;
-	server.cnt_datagrams = 0;
-	server.cnt_dropped_datagrams = 0;
-	server.cnt_out_of_order_datagrams = 0;
-	server.expected_datagram_id = 0;
-
-	/* Initialize Interim report parameters */
-	server.i_report.start_time = 0;
-	server.i_report.total_bytes = 0;
-	server.i_report.cnt_datagrams = 0;
-	server.i_report.cnt_dropped_datagrams = 0;
-	server.i_report.last_report_time = 0;
 }
 
 void udpSocketWrite(struct InetAddress* destinationAddress,
@@ -199,7 +76,7 @@ int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize)
 	struct sockaddr_in addr;
 	socklen_t fromlen = sizeof(addr);
 
-    numBytes = recvfrom(sock, bufferData->buffer, UDP_RECV_BUFSIZE, 0,
+    numBytes = recvfrom(sock, bufferData->buffer, MAX_BUFFER_LENGTH, 0,
                              (struct sockaddr *)&addr, &fromlen);
     if(numBytes <= 0)
     {
@@ -234,13 +111,15 @@ uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
     }
 
     struct BufferData readBufferData;
-    int numBytes = udpSocketRead(&readBufferData, UDP_RECV_BUFSIZE);
+    int numBytes = udpSocketRead(&readBufferData, MAX_BUFFER_LENGTH);
 
     if(numBytes != 0)
     {
         char* result;
-        result = (char *) memchr( readBufferData.buffer, response, numBytes);
-        if(result != NULL)
+        char responseBuffer[numBytes];
+        strncpy(responseBuffer, readBufferData.buffer, numBytes);
+        result = strpbrk(responseBuffer, response);
+        if(result)
         {
             return 1;
         }

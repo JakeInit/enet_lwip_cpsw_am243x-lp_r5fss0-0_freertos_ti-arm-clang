@@ -27,8 +27,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * test.c - This file is part of lwIP test
- *
  */
 
 /* C runtime includes */
@@ -40,6 +38,7 @@
 #include "lwip/opt.h"
 #include "test_enet_lwip.h"
 #include <enet_board_cfg.h>
+
 /* SDK includes */
 #include "ti_drivers_open_close.h"
 #include "ti_board_open_close.h"
@@ -47,17 +46,13 @@
 #include <kernel/dpl/ClockP.h>
 #include "drivers/soc.h"
 
-#if defined(ENET_ENABLE_ICSSG)
-#include <networking/enet/core/include/per/icssg.h>
-#endif
-
 extern void Board_cpswMuxSel(void);
 extern void Board_TxRxDelaySet(const EnetBoard_PhyCfg *boardPhyCfg);
 extern uint32_t Board_getEthBoardId(void);
 extern uint32_t Board_getEthType(void);
 
-#if defined(ENET_ENABLE_ICSSG)
 /* Need to include Mempool api of ICSSG for CPSW examples due to linking of icssg and cpsw in enet-lld */
+#if defined(ENET_ENABLE_ICSSG)
 Icssg_FwPoolMem* EnetCb_getFwPoolMem(Enet_Type enetType, uint32_t instId)
 {
     EnetAppUtils_assert(false);
@@ -178,7 +173,7 @@ void EnetApp_getEnetInstInfo(Enet_Type *enetType,
     macPortList[0] = ENET_MAC_PORT_1;
 }
 
-int enet_lwip_example(void *args)
+int initParakeetApplication(void *args)
 {
     Enet_Type enetType;
     uint32_t instId;
@@ -191,27 +186,13 @@ int enet_lwip_example(void *args)
     Board_cpswMuxSel();
 
     DebugP_log("\n==========================\r\n");
-    DebugP_log("      ENET LWIP App       \r\n");
+    DebugP_log("    ENET UDP Application  \r\n");
     DebugP_log("==========================\r\n");
-
-#if defined (SOC_AWR294X)
-    {
-        /* TODO: This should be done from syscfg */
-        uint32_t cpswFreq;
-        SOC_rcmSetPeripheralClock(SOC_RcmPeripheralId_MSS_CPSW, SOC_RcmPeripheralClockSource_DPLL_PER_HSDIV0_CLKOUT1, 200000000);
-        SOC_rcmConfigEthMacIf();
-
-        cpswFreq = SOC_rcmGetPeripheralClock(SOC_RcmPeripheralId_MSS_CPSW);
-        EnetAppUtils_print("CPSW frequency is %d\r\n", cpswFreq);
-    }
-#endif
 
     EnetApp_getEnetInstInfo(&enetType, &instId, macPortList, &numMacPorts);
     EnetAppUtils_enableClocks(enetType, instId);
 
-    /* no stdio-buffering, please! */
-    //setvbuf(stdout, NULL,_IONBF, 0);
-    main_loop(NULL);
+    runParakeetApplication(NULL);
     return 0;
 }
 

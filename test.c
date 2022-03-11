@@ -39,7 +39,6 @@
 
 /* lwIP core includes */
 #include "lwip/opt.h"
-
 #include "lwip/sys.h"
 #include "lwip/timeouts.h"
 #include "lwip/debug.h"
@@ -54,9 +53,9 @@
 #include "lwip/dns.h"
 #include "lwip/dhcp.h"
 #include "lwip/autoip.h"
+#include "lwip/etharp.h"
 
 /* lwIP netif includes */
-#include "lwip/etharp.h"
 #include "netif/ethernet.h"
 
 /* applications includes */
@@ -96,16 +95,10 @@
 #define LWIP_EXAMPLE_APP_ABORT() 0
 #endif
 
-
-/* ========================================================================== */
-/*                         Structure Declarations                             */
-/* ========================================================================== */
-
-/* globales variables for netifs */
+/* global variables for netifs */
 
 struct dhcp netif_dhcp; // dhcp struct for the ethernet netif
 struct autoip netif_autoip; // autoip struct for the ethernet netif
-
 
 static void status_callback(struct netif *state_netif)
 {
@@ -132,7 +125,7 @@ static void link_callback(struct netif *state_netif)
 }
 
 /* This function initializes all network interfaces */
-static void test_netif_init(void)
+static void initNetIF(void)
 {
   ip4_addr_t ipaddr, netmask, gw;
   err_t err;
@@ -160,27 +153,16 @@ static void test_netif_init(void)
   LWIP_ASSERT("dhcp_start failed", err == ERR_OK);
 }
 
-/* This function initializes applications */
-static void apps_init(void)
+/* Startup UDP Server and Create Socket */
+static void initUdpServer(void)
 {
-  // tcpecho_init();
-  udpecho_init();
-
-#if LWIP_SOCKET_EXAMPLES_APP && LWIP_SOCKET
-  socket_examples_init();
-#endif /* LWIP_SOCKET_EXAMPLES_APP && LWIP_SOCKET */
-
-  lwiperf_example_init();
-
   print_app_header();
   sys_thread_new("UDP Iperf", udpSocketOpen, NULL, DEFAULT_THREAD_STACKSIZE,
                              DEFAULT_THREAD_PRIO);
 }
 
-/* This function initializes this lwIP test. When NO_SYS=1, this is done in
- * the main_loop context (there is no other one), when NO_SYS=0, this is done
- * in the tcpip_thread context */
-static void test_init(void * arg)
+/* This function initializes the UDP server and all network interfaces  */
+static void initialize(void * arg)
 {
 
 /* remove compiler warning */
@@ -191,20 +173,15 @@ static void test_init(void * arg)
   /* init randomizer again (seed per thread) */
   srand((unsigned int)sys_now()/1000);
 
-  /* init network interfaces */
-  test_netif_init();
-
-  /* init apps */
-  apps_init();
+  initNetIF();
+  initUdpServer();
 
   sys_sem_signal(init_sem);
 }
 
-/* This is somewhat different to other ports: we have a main loop here:
- * a dedicated task that waits for packets to arrive. This would normally be
- * done from interrupt context with embedded hardware, but we don't get an
- * interrupt in windows for that :-) */
-void main_loop(void * a0)
+/* Dedicated task that waits for packets to arrive.
+ * can be changed to trigger on interrupt with embedded hardware */
+void runParakeetApplication(void * a0)
 {
   err_t err;
   sys_sem_t init_sem;
@@ -213,18 +190,21 @@ void main_loop(void * a0)
   err = sys_sem_new(&init_sem, 0);
   LWIP_ASSERT("failed to create init_sem", err == ERR_OK);
   LWIP_UNUSED_ARG(err);
-  tcpip_init(test_init, &init_sem); // Create thread to run inserted function
+  tcpip_init(initialize, &init_sem); // Create thread to run inserted function
 
   sys_sem_wait(&init_sem); // wait for initialization to finish
   sys_sem_free(&init_sem);
 
-  /* MAIN LOOP for driver update */
+  // ------------------------------------------------------------------------------------------
+  //                          INITIALIZE PARAKEET DRIVER HERE
+  // ------------------------------------------------------------------------------------------
+
+  /* MAIN LOOP for Parakeet Execution */
   while (!LWIP_EXAMPLE_APP_ABORT())
   {
-    default_netif_poll();
+    default_netif_poll();      // Currently poll, but will change later to interrupt based when data is ready
     sys_msleep(1);
     {
-        void print_cpu_load(); // implemented in test_enet.c
         print_cpu_load();
     }
   }

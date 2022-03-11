@@ -128,7 +128,7 @@ uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
     {
         char* result;
         char responseBuffer[numBytes];
-        strncpy(responseBuffer, readBufferData.buffer, numBytes);
+        strncpy(responseBuffer, readBufferData.buffer, numBytes); // copy contents of buffer into responseBuffer
         result = strpbrk(responseBuffer, response);
         if(result)
         {

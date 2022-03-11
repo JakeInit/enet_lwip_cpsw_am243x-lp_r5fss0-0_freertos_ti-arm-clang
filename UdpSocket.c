@@ -36,7 +36,18 @@
 
 #include <kernel/dpl/ClockP.h>
 
-static int sock = 0;
+struct UdpInstance* UdpInstance_new()
+{
+    struct UdpInstance* instance = malloc(sizeof(*instance));
+    instance->socket = 0;
+    instance->open = udpSocketOpen;
+    instance->close = udpSocketClose;
+    instance->read = udpSocketRead;
+    instance->write = udpSocketWrite;
+    instance->sendMessage = udpSocketSendMessage;
+
+    return instance;
+}
 
 void print_app_header(void)
 {
@@ -50,7 +61,7 @@ static void print_udp_conn_stats(struct sockaddr_in from)
 }
 
 void udpSocketWrite(struct InetAddress* destinationAddress,
-                    struct BufferData* bufferData)
+                    struct BufferData* bufferData, int* socket)
 {
     struct sockaddr_in to;
     to.sin_family = AF_INET;
@@ -58,16 +69,16 @@ void udpSocketWrite(struct InetAddress* destinationAddress,
 
     to.sin_port = htons(destinationAddress->port);
 
-    if(sendto(sock, bufferData->buffer, bufferData->length , 0,
+    if(sendto(*socket, bufferData->buffer, bufferData->length , 0,
            (struct sockaddr*)&to, sizeof(struct sockaddr)))
     {
         DebugP_log("Error in write\r\n\r");
     }
 }
 
-int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize)
+int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize, int* socket)
 {
-    if(!isConnected())
+    if(!isConnected(socket))
     {
         return 0;
     }
@@ -76,7 +87,7 @@ int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize)
 	struct sockaddr_in addr;
 	socklen_t fromlen = sizeof(addr);
 
-    numBytes = recvfrom(sock, bufferData->buffer, MAX_BUFFER_LENGTH, 0,
+    numBytes = recvfrom(*socket, bufferData->buffer, MAX_BUFFER_LENGTH, 0,
                              (struct sockaddr *)&addr, &fromlen);
     if(numBytes <= 0)
     {
@@ -88,15 +99,15 @@ int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize)
 
 uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
                           struct BufferData* bufferData, char* response,
-                          uint64_t timeout_ms)
+                          uint64_t timeout_ms, int* socket)
 {
-    if(!isConnected())
+    if(!isConnected(socket))
     {
         return 0;
     }
 
     uint64_t startTime_us = ClockP_getTimeUsec();
-    udpSocketWrite(destinationAddress, bufferData);
+    udpSocketWrite(destinationAddress, bufferData, socket);
     uint64_t timePast_us = 0;
 
     uint64_t timeout_us = timeout_ms * 1000;
@@ -106,12 +117,12 @@ uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
         if(totalTimePast_us != timePast_us)
         {
             timePast_us = totalTimePast_us;
-            udpSocketWrite(destinationAddress, bufferData);
+            udpSocketWrite(destinationAddress, bufferData, socket);
         }
     }
 
     struct BufferData readBufferData;
-    int numBytes = udpSocketRead(&readBufferData, MAX_BUFFER_LENGTH);
+    int numBytes = udpSocketRead(&readBufferData, MAX_BUFFER_LENGTH, socket);
 
     if(numBytes != 0)
     {
@@ -128,13 +139,13 @@ uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
     return 0;
 }
 
-void udpSocketOpen(void *arg)
+void udpSocketOpen(int* socket)
 {
 	err_t err;
 	struct sockaddr_in addr;
 
-	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (sock < 0)
+	*socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (socket < 0)
 	{
 		DebugP_log("UDP server: Error creating Socket\r\r\n");
 		return;
@@ -145,24 +156,24 @@ void udpSocketOpen(void *arg)
 	addr.sin_port = htons(UDP_CONN_PORT);     // srcPort
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	err = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
+	err = bind(*socket, (struct sockaddr *)&addr, sizeof(addr));
 	if (err != ERR_OK)
 	{
 		DebugP_log("UDP server: Error on bind: %d\r\r\n", err);
-		udpSocketClose();
+		udpSocketClose(socket);
 		return;
 	}
 }
 
-void udpSocketClose()
+void udpSocketClose(int* socket)
 {
-    close(sock);
-    sock = 0;
+    close(*socket);
+    socket = 0;
 }
 
-uint8_t isConnected()
+uint8_t isConnected(int* socket)
 {
-    if(sock == 0)
+    if(socket == 0)
     {
         return 0;
     }

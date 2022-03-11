@@ -32,6 +32,8 @@
  */
 
 /* C runtime includes */
+#include "parakeetApp.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
@@ -88,17 +90,15 @@
 
 /* include the port-dependent configuration */
 #include "lwipcfg.h"
-#include "test_enet_lwip.h"
 #include "UdpSocket.h"
 
 #ifndef LWIP_EXAMPLE_APP_ABORT
 #define LWIP_EXAMPLE_APP_ABORT() 0
 #endif
 
-/* global variables for netifs */
-
-struct dhcp netif_dhcp; // dhcp struct for the ethernet netif
-struct autoip netif_autoip; // autoip struct for the ethernet netif
+/* global variables for network interfaces*/
+struct dhcp netif_dhcp;     // DHCP struct for the ethernet netif
+struct autoip netif_autoip; // AUTOIP struct for the ethernet netif
 
 static void status_callback(struct netif *state_netif)
 {
@@ -157,8 +157,8 @@ static void initNetIF(void)
 static void initUdpServer(void)
 {
   print_app_header();
-  sys_thread_new("UDP Iperf", udpSocketOpen, NULL, DEFAULT_THREAD_STACKSIZE,
-                             DEFAULT_THREAD_PRIO);
+//  sys_thread_new("UDP Iperf", udpSocketOpen, NULL, DEFAULT_THREAD_STACKSIZE,
+//                             DEFAULT_THREAD_PRIO);
 }
 
 /* This function initializes the UDP server and all network interfaces  */

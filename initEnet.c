@@ -36,7 +36,6 @@
 
 /* lwIP core includes */
 #include "lwip/opt.h"
-#include "test_enet_lwip.h"
 #include <enet_board_cfg.h>
 
 /* SDK includes */
@@ -45,6 +44,7 @@
 #include <kernel/dpl/TaskP.h>
 #include <kernel/dpl/ClockP.h>
 #include "drivers/soc.h"
+#include "parakeetApp.h"
 
 extern void Board_cpswMuxSel(void);
 extern void Board_TxRxDelaySet(const EnetBoard_PhyCfg *boardPhyCfg);
@@ -62,24 +62,25 @@ Icssg_FwPoolMem* EnetCb_getFwPoolMem(Enet_Type enetType, uint32_t instId)
 
 void print_cpu_load()
 {
-    static uint32_t start_time = 0;
-    uint32_t print_interval_in_secs = 5;
-    uint32_t cur_time = ClockP_getTimeUsec()/1000;
+    const uint8_t PRINT_INTERVAL_s = 5;
+    uint64_t timeNow_ms = ClockP_getTimeUsec()/1000;
+    static uint64_t startTime_ms = 0;
 
-    if(start_time==0)
+    if(startTime_ms == 0)
     {
-        start_time = cur_time;
+        startTime_ms = timeNow_ms;
+        return;
     }
-    else
-    if( (cur_time-start_time) >= (print_interval_in_secs*1000) )
+
+    if( (timeNow_ms-startTime_ms) >= (PRINT_INTERVAL_s*1000) )
     {
         uint32_t cpu_load = TaskP_loadGetTotalCpuLoad();
 
         DebugP_log(" %6d.%3ds : CPU load = %3d.%02d %%\r\n",
-            cur_time/1000, cur_time%1000,
+            timeNow_ms/1000, timeNow_ms%1000,
             cpu_load/100, cpu_load%100 );
 
-        start_time = cur_time;
+        startTime_ms = timeNow_ms;
 
         TaskP_loadResetAll();
     }
@@ -173,7 +174,8 @@ void EnetApp_getEnetInstInfo(Enet_Type *enetType,
     macPortList[0] = ENET_MAC_PORT_1;
 }
 
-int initParakeetApplication(void *args)
+/* Initializes Ethernet Peripherals and Values. Then Starts the Parakeet Application */
+int initEnet(void *args)
 {
     Enet_Type enetType;
     uint32_t instId;
@@ -186,7 +188,7 @@ int initParakeetApplication(void *args)
     Board_cpswMuxSel();
 
     DebugP_log("\n==========================\r\n");
-    DebugP_log("    ENET UDP Application  \r\n");
+    DebugP_log(" Parakeet UDP Application \r\n");
     DebugP_log("==========================\r\n");
 
     EnetApp_getEnetInstInfo(&enetType, &instId, macPortList, &numMacPorts);
@@ -195,4 +197,3 @@ int initParakeetApplication(void *args)
     runParakeetApplication(NULL);
     return 0;
 }
-

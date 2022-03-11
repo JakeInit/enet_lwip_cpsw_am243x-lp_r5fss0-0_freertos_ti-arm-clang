@@ -58,15 +58,35 @@ struct InetAddress
     unsigned short port;
 };
 
+struct UdpInstance
+{
+    int socket;
+    void (*write)(struct InetAddress* destinationAddress, struct BufferData* bufferData, int* socket);
+    int (*read)(struct BufferData* bufferData, int bufferMaxSize, int* socket);
+    uint8_t (*sendMessage)(struct InetAddress* destinationAddress, struct BufferData* bufferData,
+            char* response, uint64_t timeout_ms, int* socket);
+
+    void (*open)(int* socket);
+    void (*close)(int* socket);
+};
+
 void print_app_header(void);
+
 void udpSocketWrite(struct InetAddress* destinationAddress,
-                    struct BufferData* bufferData);
-int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize);
+                    struct BufferData* bufferData, int* socket);
+
+int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize, int* socket);
+
 uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
                           struct BufferData* bufferData, char* response,
-                          uint64_t timeout_ms);
-void udpSocketOpen(void *arg);
-void udpSocketClose();
-uint8_t isConnected();
+                          uint64_t timeout_ms, int* socket);
+
+void udpSocketOpen(int* socket);
+
+void udpSocketClose(int* socket);
+
+uint8_t isConnected(int* socket);
+
+struct UdpInstance* UdpInstance_new();
 
 #endif /* __UDPSOCKET_H_ */

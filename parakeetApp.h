@@ -89,7 +89,8 @@
 #include "examples/httpd/ssi_example/ssi_example.h"
 
 #include "default_netif.h"
-#include "UdpSocket.h"
+
+#include "src/UdpSocket.h"
 
 
 #if NO_SYS

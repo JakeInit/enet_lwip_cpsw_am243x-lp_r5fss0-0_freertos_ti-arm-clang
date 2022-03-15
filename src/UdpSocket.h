@@ -40,52 +40,49 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 
-#include <kernel/dpl/DebugP.h>
+#include "Bool.h"
+#include "Shared.h"
 
 #define UDP_CONN_PORT 5001        // server port to listen on/connect to
 
+#ifndef MAX_BUFFER_LENGTH
 #define MAX_BUFFER_LENGTH 8192
-
-struct BufferData
-{
-    char buffer[MAX_BUFFER_LENGTH];
-    unsigned int length;
-};
-
-struct InetAddress
-{
-    char ipAddress[INET_ADDRSTRLEN];
-    unsigned short port;
-};
+#endif
 
 struct UdpInstance
 {
     int socket;
-    void (*write)(struct InetAddress* destinationAddress, struct BufferData* bufferData, int* socket);
-    int (*read)(struct BufferData* bufferData, int bufferMaxSize, int* socket);
+    int (*getSocket)();
+    void (*write)(struct InetAddress* destinationAddress, struct BufferData* bufferData);
+    int (*read)(struct BufferData* bufferData, int bufferMaxSize);
     uint8_t (*sendMessage)(struct InetAddress* destinationAddress, struct BufferData* bufferData,
-            char* response, uint64_t timeout_ms, int* socket);
+            char* response, uint64_t timeout_ms);
 
-    void (*open)(int* socket);
-    void (*close)(int* socket);
+    void (*open)();
+    void (*close)();
+    void (*closeThisSocket)(int* socket);
 };
 
 void print_app_header(void);
 
+int getSocket();
+
 void udpSocketWrite(struct InetAddress* destinationAddress,
-                    struct BufferData* bufferData, int* socket);
+                    struct BufferData* bufferData);
 
-int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize, int* socket);
+int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize);
 
-uint8_t udpSocketSendMessage(struct InetAddress* destinationAddress,
+bool udpSocketSendMessage(struct InetAddress* destinationAddress,
                           struct BufferData* bufferData, char* response,
-                          uint64_t timeout_ms, int* socket);
+                          uint64_t timeout_ms);
 
-void udpSocketOpen(int* socket);
+void udpSocketOpen();
 
-void udpSocketClose(int* socket);
+void udpSocketClose();
 
-uint8_t isConnected(int* socket);
+void udpCloseThisSocket(int* socket);
+
+bool isConnected();
 
 struct UdpInstance* UdpInstance_new();
 

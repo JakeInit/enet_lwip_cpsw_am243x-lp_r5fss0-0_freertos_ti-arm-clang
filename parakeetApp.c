@@ -90,7 +90,7 @@
 
 /* include the port-dependent configuration */
 #include "lwipcfg.h"
-#include "UdpSocket.h"
+#include "src/UdpSocket.h"
 
 #ifndef LWIP_EXAMPLE_APP_ABORT
 #define LWIP_EXAMPLE_APP_ABORT() 0

@@ -5,16 +5,16 @@
  *      Author: root
  */
 
-#ifndef PARAKEETDRIVER_H_
-#define PARAKEETDRIVER_H_
+#ifndef SRC_PARAKEETDRIVER_H_
+#define SRC_PARAKEETDRIVER_H_
 
 #include <stdio.h>
 #include <stdarg.h>
 
 #include "lwip/inet.h"
 
+#include "Parser.h"
 #include "Bool.h"
-#include "parser.h"
 
 /// \brief All currently supported Scanning Frequencies
 enum ScanningFrequency
@@ -29,10 +29,10 @@ struct SensorConfiguration
     char ipAddress[INET_ADDRSTRLEN];
     int dstPort;
     int srcPort;
-    Bool intensity;
-    Bool dataSmoothing;
-    Bool dragPointRemoval;
-    Bool resampleFilter;
+    bool intensity;
+    bool dataSmoothing;
+    bool dragPointRemoval;
+    bool resampleFilter;
     enum ScanningFrequency scanningFrequency_Hz;
 };
 
@@ -42,10 +42,10 @@ struct SensorConfiguration
 /// \param[in] dataSmoothing - Should data smoothing be enabled
 /// \param[in] dragPointRemoval - Should drag point removal be enabled
 struct SensorConfiguration* SensorConfiguration_new(const char* ipAddress, int dstPort,
-                                                    int srcPort, Bool intensity,
+                                                    int srcPort, bool intensity,
                                                     enum ScanningFrequency scanningFrequency_Hz,
-                                                    Bool dataSmoothing, Bool dragPointRemoval,
-                                                    Bool resampleFilter);
+                                                    bool dataSmoothing, bool dragPointRemoval,
+                                                    bool resampleFilter);
 
 /// \brief Attempt connection to a Parakeet sensor through a ethernet port
 /// \param[in] sensorConfiguration - Sensor settings and ethernet port information
@@ -70,30 +70,30 @@ enum ScanningFrequency getScanningFrequency_Hz();
 
 /// \brief Set the state of intensity data on the sensor
 /// \param[in] enable - The state of intensity data
-void enableIntensityData(Bool enable);
+void enableIntensityData(bool enable);
 
 /// \brief Gets the state of intensity data
 /// \returns The state of intensity data
-Bool isIntensityDataEnabled();
+bool isIntensityDataEnabled();
 
 /// \brief Set the state of data smoothing on the sensor
 /// \param[in] enable - The state of data smoothing
-void enableDataSmoothing(Bool enable);
+void enableDataSmoothing(bool enable);
 
 /// \brief Gets the state of data smoothing
 /// \returns The state of data smoothing
-Bool isDataSmoothingEnabled();
+bool isDataSmoothingEnabled();
 
 /// \brief Set the state of drag point removal on the sensor
 /// \param[in] enable - The state of drag point removal
-void enableRemoveDragPoint(Bool enable);
+void enableRemoveDragPoint(bool enable);
 
 /// \brief Gets the state of drag point removal
 /// \returns The state of drag point removal
-Bool isDragPointRemovalEnabled();
+bool isDragPointRemovalEnabled();
 
 /// \brief Set the state of the resample filter on the sensor
 /// \param[in] enable - The state of the resample filter
-void enableResampleFilter(Bool enable);
+void enableResampleFilter(bool enable);
 
-#endif /* PARAKEETDRIVER_H_ */
+#endif /* SRC_PARAKEETDRIVER_H_ */

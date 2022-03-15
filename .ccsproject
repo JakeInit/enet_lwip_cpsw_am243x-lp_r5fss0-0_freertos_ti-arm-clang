@@ -15,4 +15,5 @@
 	<templateProperties value="id=example.projectspec.enet_lwip_cpsw_am243x-lp_r5fss0-0_freertos_ti-arm-clang"/>
 	<origin value="/home/jake/ti/mcu_plus_sdk_am243x_08_01_00_36/examples/networking/lwip/enet_lwip_cpsw/am243x-lp/r5fss0-0_freertos/ti-arm-clang/example.projectspec"/>
 	<filesToOpen value=""/>
+	<isTargetManual value="false"/>
 </projectOptions>

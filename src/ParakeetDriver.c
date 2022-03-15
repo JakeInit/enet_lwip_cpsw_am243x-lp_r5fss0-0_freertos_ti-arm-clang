@@ -5,23 +5,22 @@
  *      Author: Jacob Morgan
  */
 
-#include "parakeetDriver.h"
-
 #include <string.h>
+#include "ParakeetDriver.h"
 
 const int ETHERNET_MESSAGE_DATA_BUFFER_SIZE = 8192;
 
 void open();
 void ethernetUpdateThreadFunction();
-Bool isConnected();
+bool isConnected();
 
 void onCompleteLidarMessage(const struct CompleteLidarMessage* lidarMessage);
 
 struct SensorConfiguration* SensorConfiguration_new(const char* ipAddress, int dstPort,
-                                                    int srcPort, Bool intensity,
+                                                    int srcPort, bool intensity,
                                                     enum ScanningFrequency scanningFrequency_Hz,
-                                                    Bool dataSmoothing, Bool dragPointRemoval,
-                                                    Bool resampleFilter)
+                                                    bool dataSmoothing, bool dragPointRemoval,
+                                                    bool resampleFilter)
 {
     struct SensorConfiguration* config = malloc(sizeof(*config));
     strncpy(config->ipAddress, ipAddress, INET_ADDRSTRLEN);
@@ -35,5 +34,3 @@ struct SensorConfiguration* SensorConfiguration_new(const char* ipAddress, int d
 
     return config;
 }
-
-

@@ -32,8 +32,6 @@
  */
 
 /* C runtime includes */
-#include "parakeetApp.h"
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
@@ -91,6 +89,7 @@
 /* include the port-dependent configuration */
 #include "lwipcfg.h"
 #include "src/UdpSocket.h"
+#include "parakeetApp.h"
 
 #ifndef LWIP_EXAMPLE_APP_ABORT
 #define LWIP_EXAMPLE_APP_ABORT() 0

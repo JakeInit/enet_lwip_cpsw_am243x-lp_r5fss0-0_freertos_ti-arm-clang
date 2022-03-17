@@ -16,6 +16,7 @@
 #define MAX_BUFFER_LENGTH 8192
 #endif
 
+// UDP Structs
 struct BufferData
 {
     char buffer[MAX_BUFFER_LENGTH];
@@ -28,6 +29,7 @@ struct InetAddress
     unsigned short port;
 };
 
+// Parser Structs
 struct LidarSensorProperties
 {
     bool unitIsInCM;
@@ -40,8 +42,8 @@ struct LidarSensorProperties
 
 struct LidarPoint
 {
-    uint16_t distance;
-    uint16_t relativeStartAngle;
+    uint16_t distance_um;
+    uint16_t relativeStartAngle_deg;
     uint8_t intensity;
 };
 
@@ -60,10 +62,26 @@ struct CompleteLidarMessage
     struct LidarPoint* lidarPoints;
 };
 
-//void lidarMessage_set_status_callback(struct CompleteLidarMessage* completeMessage,
-//                                      Completed_Message_Callback_fn message_callback);
-//
-//void lidarMessage_set_remove_callback(struct CompleteLidarMessage *completeMessage,
-//                                      Completed_Message_Callback_fn remove_callback);
+// Polar Structs
+struct PointPolar
+{
+    uint32_t range_um;
+    uint32_t angle_deg; // units in degrees times 100
+    uint16_t intensity;
+};
+
+struct ScanDataPolar
+{
+    struct PointPolar* polarPointsList;
+    uint32_t listSize;
+    uint64_t timestamp_us;
+};
+
+struct DataPoint
+{
+    uint32_t angle_deg;
+    uint32_t distance_um;
+    unsigned char confidence;
+};
 
 #endif /* SRC_SHARED_H_ */

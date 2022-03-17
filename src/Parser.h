@@ -13,9 +13,7 @@
 
 #include "Shared.h"
 
-// Points to function passed in that has a reference to a complete lidar message as input
-// Returns nothing
-void (*onCompleteLidarMessageCallback)(struct CompleteLidarMessage* message);
+void initParser(void (*message_callback)(struct CompleteLidarMessage *completeMessage));
 
 int parse(const struct BufferData* bufferData);
 

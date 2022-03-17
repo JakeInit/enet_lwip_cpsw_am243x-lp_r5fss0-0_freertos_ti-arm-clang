@@ -40,7 +40,6 @@ struct PartialLidarMessage
     uint16_t checksum;
 };
 
-void initParser(void (*message_callback)(struct CompleteLidarMessage *completeMessage));
 void generateTimestamp();
 void parseHeader();
 void parseNumPointsInThisPartialSector();
@@ -104,6 +103,10 @@ const uint8_t SIZE_OF_LIDAR_POINT = SIZE_OF_DISTANCE + SIZE_OF_RELATIVE_START_AN
 
 bool memoryAllocatedForCurrentMessage = false;
 bool memoryAllocatedForPartialScanList = false;
+
+// Points to function passed in that has a reference to a complete lidar message as input
+// Returns nothing
+void (*onCompleteLidarMessageCallback)(struct CompleteLidarMessage* message);
 
 //---------------------------------------------------------------------------------------------
 //--------------------Memory Management--------------------------------------------------------
@@ -266,9 +269,9 @@ void parsePoints()
         uint16_t distance;
 
         memcpy(&distance, bufferData.buffer + BUFFER_POS_DISTANCES + (i * SIZE_OF_DISTANCE), SIZE_OF_DISTANCE);
-        lidarPoint.distance = currentLidarMessage->sensorPropertyFlags.unitIsInCM ? distance : distance / 10;
+        lidarPoint.distance_um = currentLidarMessage->sensorPropertyFlags.unitIsInCM ? distance : distance / 10;
 
-        memcpy(&lidarPoint.relativeStartAngle, bufferData.buffer + BUFFER_POS_RELATIVE_START_ANGLES + (i * SIZE_OF_RELATIVE_START_ANGLE), SIZE_OF_RELATIVE_START_ANGLE);
+        memcpy(&lidarPoint.relativeStartAngle_deg, bufferData.buffer + BUFFER_POS_RELATIVE_START_ANGLES + (i * SIZE_OF_RELATIVE_START_ANGLE), SIZE_OF_RELATIVE_START_ANGLE);
 
         if (currentLidarMessage->sensorPropertyFlags.withIntensity)
         {
@@ -331,8 +334,8 @@ bool doesChecksumMatch()
     for(uint64_t i = 0; i < currentLidarMessage->numPoints; i++)
     {
         struct LidarPoint lidarPoint = currentLidarMessage->lidarPoints[i];
-        newChecksum += lidarPoint.distance;
-        newChecksum += lidarPoint.relativeStartAngle;
+        newChecksum += lidarPoint.distance_um;
+        newChecksum += lidarPoint.relativeStartAngle_deg;
         newChecksum += lidarPoint.intensity;
     }
 

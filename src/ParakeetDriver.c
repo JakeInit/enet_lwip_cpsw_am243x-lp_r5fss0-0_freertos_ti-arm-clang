@@ -8,22 +8,31 @@
 #include <string.h>
 #include "ParakeetDriver.h"
 #include "Parser.h"
+#include "UdpSocket.h"
+#include "Shared.h"
+#include "Vector.h"
 
 #include <kernel/dpl/ClockP.h>
 #include <kernel/dpl/DebugP.h>
 
-const int ETHERNET_MESSAGE_DATA_BUFFER_SIZE = 8192;
+#define ETHERNET_MESSAGE_DATA_BUFFER_SIZE 8192
 
-unsigned char ethernetPortDataBuffer[ETHERNET_MESSAGE_DATA_BUFFER_SIZE];
+void (*scanCallbackFunction)(struct ScanDataPolar*);
 
-uint64_t timeOfFirstPoint;
-uint64_t updateThreadStartTime_us;
-int16_t updateThreadFrameCount = 0;
-bool runUpdateThread = false;
+void openParakeetSocket();
+void ethernetUpdateThreadFunction();
+bool isSensorConnected();
 
-uint32_t pointHoldingListSize;
-struct PointPolar* pointHoldingList;
+void onCompleteLidarMessage(struct CompleteLidarMessage* lidarMessage);
+uint32_t calculateEndOfMessageCRC(uint32_t* ptr, uint32_t len);
 
+bool sendMessageWaitForResponseOrTimeout(char* message, uint32_t microsecondsTilTimeout);
+bool sendMessageWaitForResponseOrTimeoutCmd(char* message, uint32_t microsecondsTilTimeout, uint16_t cmd);
+bool sendUdpMessageWaitForResponseOrTimeout(char* message, char* response, uint32_t timeout_us, uint16_t cmd);
+
+//----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------
 struct CmdHeader
 {
     unsigned short sign;
@@ -32,23 +41,31 @@ struct CmdHeader
     unsigned short len;
 };
 
-// std::thread updateThread;
-void (*updateThreadCallbackFunction)();
-void (*scanCallbackFunction)(struct ScanDataPolar*);
+unsigned char ethernetPortDataBuffer[ETHERNET_MESSAGE_DATA_BUFFER_SIZE];
 
-void open();
-void ethernetUpdateThreadFunction();
-bool isConnected();
+uint64_t timeOfFirstPoint;
+uint64_t updateThreadStartTime_us;
+uint16_t updateThreadFrameCount = 0;
+bool runUpdateThread = false;
 
-void onCompleteLidarMessage(struct CompleteLidarMessage* lidarMessage);
-uint32_t calculateEndOfMessageCRC(uint32_t* ptr, uint32_t len);
-
-bool sendMessageWaitForResponseOrTimeout(char* message, uint32_t microsecondsTilTimeout);
-bool sendMessageWaitForResponseOrTimeout(char* message, uint32_t microsecondsTilTimeout, uint16_t cmd);
-bool sendUdpMessageWaitForResponseOrTimeout(char* message, char* response, uint32_t timeout_us, uint16_t cmd);
+bool memoryAllocatedForPointHoldingList = false;
+uint32_t pointHoldingListSize;
+Vector(struct PointPolar) pointHoldingList;
 
 struct BufferData bufferData;
 struct SensorConfiguration sensorConfiguration;
+sys_mutex_t readWrite_mutex;
+
+//---------------------------------------------------------------------------------------------
+//--------------------Memory Management--------------------------------------------------------
+//---------------------------------------------------------------------------------------------
+void clearPointHoldingList()
+{
+    if(!vectorEmpty(pointHoldingList))
+    {
+        free(pointHoldingList); // Free all memory in list
+    }
+}
 
 //----------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------
@@ -84,7 +101,7 @@ struct SensorConfiguration* SensorConfiguration_new(const char* ipAddress, uint1
                                                     bool resampleFilter)
 {
     struct SensorConfiguration* config = malloc(sizeof(*config));
-    strncpy(config->ipAddress, ipAddress, INET_ADDRSTRLEN);
+    strncpy(config->ipAddress, ipAddress, (sizeof(ipAddress) / sizeof(char)));
     config->dstPort = dstPort;
     config->srcPort = srcPort;
     config->intensity = intensity;
@@ -324,6 +341,322 @@ char* SW_SET_DST_IPV4_PROPERTIES(const unsigned char* ipAddress, const unsigned 
 void initParakeetDriver()
 {
     initParser(&onCompleteLidarMessage);
-    updateThreadCallbackFunction = ethernetUpdateThreadFunction;
-    bufferData.buffer = ethernetPortDataBuffer;
+    memcpy(bufferData.buffer, ethernetPortDataBuffer, sizeof(ethernetPortDataBuffer));
+
+    err_t err = sys_mutex_new(&readWrite_mutex);
+    LWIP_ASSERT("failed to create readWrite_mutex", err == ERR_OK);
+    LWIP_UNUSED_ARG(err);
+}
+
+void shutdownParakeetDriver()
+{
+    closeSensorConnection();
+}
+
+bool isSensorConnected()
+{
+    return socketIsOpen();
+}
+
+void assertIsConnected()
+{
+    if(!isSensorConnected())
+    {
+        DebugP_log("Not connected to sensor.");
+        exit(0);
+    }
+}
+
+void connectSensor(struct SensorConfiguration* newSensorConfiguration)
+{
+    sensorConfiguration = *newSensorConfiguration;
+    openParakeetSocket();
+}
+
+void openParakeetSocket()
+{
+    if(udpSocketOpen(sensorConfiguration.srcPort))
+    {
+        sendMessageWaitForResponseOrTimeout(CW_STOP_ROTATING, STOP_TIMEOUT_MS);
+    }
+    else
+    {
+        DebugP_log("Unable to connect to sensor.");
+        exit(0);
+    }
+}
+
+void closeSensorConnection()
+{
+    if(isSensorConnected() || runUpdateThread)
+    {
+        stopSensor();
+    }
+
+    udpSocketClose();
+}
+
+void startSensor()
+{
+    bufferData.length = 0;
+    resetParser();
+
+    enableIntensityData(sensorConfiguration.intensity);
+    enableDataSmoothing(sensorConfiguration.dataSmoothing);
+    enableRemoveDragPoint(sensorConfiguration.dragPointRemoval);
+    setScanningFrequency_Hz(sensorConfiguration.scanningFrequency_Hz);
+    enableResampleFilter(sensorConfiguration.resampleFilter);
+
+    if (!sendMessageWaitForResponseOrTimeout(CW_START_NORMALLY, START_TIMEOUT_MS))
+    {
+        DebugP_log("No response from sensor. Make sure the sensor is on and communication "
+                "is over the correct port.");
+        exit(0);
+    }
+
+    assertIsConnected();
+    runUpdateThread = true;
+    updateThreadStartTime_us = ClockP_getTimeUsec();
+    updateThreadFrameCount = 0;
+    // TODO: start update thread here
+}
+
+void stopSensor()
+{
+    sendMessageWaitForResponseOrTimeout(CW_STOP_ROTATING, STOP_TIMEOUT_MS);
+    runUpdateThread = false;
+    // End updateThread
+}
+
+void enableDataSmoothing(bool enable)
+{
+    assertIsConnected();
+    sendMessageWaitForResponseOrTimeout(SW_SET_DATA_SMOOTHING(enable), MESSAGE_TIMEOUT_MS);
+    sensorConfiguration.dataSmoothing = enable;
+}
+
+void enableRemoveDragPoint(bool enable)
+{
+    assertIsConnected();
+    sendMessageWaitForResponseOrTimeout(SW_SET_DRAG_POINT_REMOVAL(enable), MESSAGE_TIMEOUT_MS);
+    sensorConfiguration.dragPointRemoval = enable;
+}
+
+void enableIntensityData(bool enable)
+{
+    sensorConfiguration.intensity = enable;
+}
+
+void enableResampleFilter(bool enable)
+{
+    assertIsConnected();
+    sendMessageWaitForResponseOrTimeout(SW_SET_RESAMPLE_FILTER(enable), MESSAGE_TIMEOUT_MS);
+    sensorConfiguration.resampleFilter = enable;
+}
+
+void setScanningFrequency_Hz(enum ScanningFrequency Hz)
+{
+    assertIsConnected();
+    sendMessageWaitForResponseOrTimeout(SW_SET_SPEED(Hz * 60), MESSAGE_TIMEOUT_MS);
+    sensorConfiguration.scanningFrequency_Hz = Hz;
+}
+
+void setSensorIPv4Settings(uint8_t* ipAddress, uint8_t* subnetMask, uint8_t* gateway, uint16_t port)
+{
+    assertIsConnected();
+    sendMessageWaitForResponseOrTimeoutCmd(SW_SET_SRC_IPV4_PROPERTIES(ipAddress, subnetMask, gateway, port),
+                                           MESSAGE_TIMEOUT_MS, UDP_MESSAGE_SET_PROPERTIES_CMD);
+    sensorConfiguration.dstPort = port;
+    memcpy(sensorConfiguration.ipAddress, ipAddress, 4 * sizeof(uint8_t));
+}
+
+void setSensorDestinationIPv4Settings(uint8_t* ipAddress, uint16_t port)
+{
+    assertIsConnected();
+    sendMessageWaitForResponseOrTimeoutCmd(SW_SET_DST_IPV4_PROPERTIES(ipAddress, port),
+                                           MESSAGE_TIMEOUT_MS, UDP_MESSAGE_SET_PROPERTIES_CMD);
+    sensorConfiguration.srcPort = port;
+}
+
+bool isDataSmoothingEnabled()
+{
+    assertIsConnected();
+    return sensorConfiguration.dataSmoothing;
+}
+
+bool isDragPointRemovalEnabled()
+{
+    assertIsConnected();
+    return sensorConfiguration.dragPointRemoval;
+}
+
+bool isIntensityDataEnabled()
+{
+    return sensorConfiguration.intensity;
+}
+
+enum ScanningFrequency getScanningFrequency_Hz()
+{
+    assertIsConnected();
+    return sensorConfiguration.scanningFrequency_Hz;
+}
+
+bool isResampleFilterEnabled()
+{
+    assertIsConnected();
+    return sensorConfiguration.resampleFilter;
+}
+
+void ethernetUpdateThreadFunction()
+{
+    if(!socketIsOpen())
+    {
+        return;
+    }
+
+    sys_mutex_lock(&readWrite_mutex);
+    uint16_t charsRead = udpSocketRead(&bufferData, ETHERNET_MESSAGE_DATA_BUFFER_SIZE);
+    sys_mutex_unlock(&readWrite_mutex);
+
+    if(charsRead == 0)
+    {
+        return;
+    }
+
+    bufferData.length += charsRead;
+
+    uint16_t bytesParsed = parse(&bufferData);
+
+    for (uint32_t i = bytesParsed; i < bufferData.length; i++)
+    {
+        ethernetPortDataBuffer[i - bytesParsed] = ethernetPortDataBuffer[i];
+    }
+    bufferData.length -= bytesParsed;
+}
+
+void onScanDataReceived(struct ScanData* scanData)
+{
+    // in degrees times 100
+    uint32_t anglePerPoint_deg = 100 * (scanData->endAngle_deg - scanData->startAngle_deg) / scanData->count;
+
+    // 1 degree * 100
+    uint32_t deviationFrom360_deg = 100;
+
+    // Create PointPolar for each data point
+    for(uint32_t i = 0; i < scanData->count; i++)
+    {
+        struct PointPolar pointPolar;
+        pointPolar.range_um = scanData->dist_um[i];
+        pointPolar.angle_deg = 100 * scanData->startAngle_deg + (anglePerPoint_deg * i);
+        pointPolar.intensity = scanData->intensity[i];
+
+        vectorPushBack(pointHoldingList, pointPolar);
+    }
+
+    if(scanData->endAngle_deg + deviationFrom360_deg >= 36000) // 360 * 100
+    {
+        updateThreadFrameCount++;
+        struct ScanDataPolar scanDataPolar;
+        vectorCopy(pointHoldingList, scanDataPolar.polarPointsList); // From, To
+        scanDataPolar.listSize = scanData->count;
+        scanDataPolar.timestamp_us = scanData->timestamp_us;
+
+        scanCallbackFunction(&scanDataPolar);
+        clearPointHoldingList();
+    }
+}
+
+void onCompleteLidarMessage(struct CompleteLidarMessage* lidarMessage)
+{
+    struct ScanData* scanData = ScanData_New();
+    scanData->setTime(scanData, lidarMessage->timestamp_us);
+    scanData->count = lidarMessage->totalPoints;
+    scanData->startAngle_deg = lidarMessage->startAngle;
+    scanData->endAngle_deg = lidarMessage->endAngle;
+
+    for (uint32_t i = 0; i < lidarMessage->totalPoints; i++)
+    {
+        scanData->dist_um[i] = lidarMessage->lidarPoints[i].distance_um;
+        scanData->intensity[i] = lidarMessage->lidarPoints[i].intensity;
+    }
+
+    onScanDataReceived(scanData);
+}
+
+void registerScanCallback(void (*callback)(struct ScanDataPolar*))
+{
+    scanCallbackFunction = callback;
+}
+
+bool sendMessageWaitForResponseOrTimeoutCmd(char* message, uint32_t microsecondsTilTimeout, uint16_t cmd)
+{
+    sys_mutex_lock(&readWrite_mutex);
+    bool state = sendUdpMessageWaitForResponseOrTimeout(message, "OK", microsecondsTilTimeout, cmd);
+    sys_mutex_unlock(&readWrite_mutex);
+
+    return state;
+}
+
+bool sendMessageWaitForResponseOrTimeout(char* message, uint32_t microsecondsTilTimeout)
+{
+    return sendMessageWaitForResponseOrTimeoutCmd(message, microsecondsTilTimeout, UDP_MESSAGE_CMD);
+}
+
+bool sendUdpMessageWaitForResponseOrTimeout(char* message, char* response, uint32_t timeout_us, uint16_t cmd)
+{
+    unsigned char buffer[2048] = {0};
+    struct CmdHeader* hdr = (struct CmdHeader*)buffer;
+    hdr->sign = UDP_MESSAGE_SIGN;
+    hdr->cmd = cmd;
+    hdr->sn = rand();
+
+    hdr->len = ((uint16_t) ((sizeof(message) / sizeof(char)) + 3) >> 2) * 4;
+
+    memcpy(buffer + sizeof(struct CmdHeader), message, (sizeof(message) / sizeof(char)));
+
+    uint32_t* pcrc = (uint32_t*)(buffer + sizeof(struct CmdHeader) + hdr->len);
+    pcrc[0] = calculateEndOfMessageCRC((uint32_t*)(buffer), hdr->len / 4 + 2);
+
+    struct InetAddress inetAddress;
+    memcpy(inetAddress.ipAddress, sensorConfiguration.ipAddress, INET_ADDRSTRLEN);
+    inetAddress.port = sensorConfiguration.dstPort;
+
+    struct BufferData newBufferData;
+    memcpy(newBufferData.buffer, buffer, sizeof(buffer) / sizeof(unsigned char));
+    newBufferData.length = sizeof(struct CmdHeader) + sizeof(pcrc[0]) + hdr->len;
+
+    return udpSocketSendMessage(&inetAddress, &newBufferData, response, timeout_us);
+}
+
+uint32_t calculateEndOfMessageCRC(uint32_t* ptr, uint32_t len)
+{
+    uint32_t xbit, data;
+    uint32_t crc32 = 0xFFFFFFFF;
+    const uint32_t polynomial = 0x04c11db7;
+
+    for (uint32_t i = 0; i < len; i++)
+    {
+        xbit = 1 << 31;
+        data = ptr[i];
+        for (uint32_t bits = 0; bits < 32; bits++)
+        {
+            if (crc32 & 0x80000000)
+            {
+                crc32 <<= 1;
+                crc32 ^= polynomial;
+            }
+            else
+            {
+                crc32 <<= 1;
+            }
+
+            if (data & xbit)
+            {
+                crc32 ^= polynomial;
+            }
+
+            xbit >>= 1;
+        }
+    }
+    return crc32;
 }

@@ -14,32 +14,6 @@
 #include <kernel/dpl/ClockP.h>
 #include <kernel/dpl/DebugP.h>
 
-struct LastGeneratedTimestamp
-{
-    bool validTimestamp;
-    uint64_t timestamp_us;
-};
-
-struct PartialLidarMessage
-{
-    uint16_t numPoints;
-    uint16_t numPointsInSector;
-    uint16_t sectorDataOffset;
-
-    uint32_t startAngle;
-    uint32_t endAngle;
-
-    struct LidarSensorProperties sensorPropertyFlags;
-
-    struct LastGeneratedTimestamp generatedTimestamp;
-    uint32_t timestamp;
-    uint32_t deviceNumber;
-
-    struct LidarPoint* lidarPoints;
-
-    uint16_t checksum;
-};
-
 void generateTimestamp();
 void parseHeader();
 void parseNumPointsInThisPartialSector();
@@ -55,25 +29,32 @@ void parseChecksum();
 void parsePartialScan();
 
 bool doesChecksumMatch();
-int parseLidarDataFromBuffer();
+uint32_t parseLidarDataFromBuffer();
 
 bool isLidarMessage();
 bool isLidarResponse();
 bool isAlarmMessage();
 
-int getTotalPointsOfAllPartialScans();
+uint32_t getTotalPointsOfAllPartialScans();
 
 bool isScanCorrupt();
 bool isScanComplete();
 void createAndPublishCompleteScan();
 
-// Global Variables for Parser
+// Points to function passed in that has a reference to a complete lidar message as input
+// Returns nothing
+void (*onCompleteLidarMessageCallback)(struct CompleteLidarMessage* message);
+
+typedef struct PartialLidarMessage Sector;
+
+//----------------------------------------------------------------------------------------------
+//----------------Global Variables for Parser---------------------------------------------------
+//----------------------------------------------------------------------------------------------
 uint16_t header;
 
-struct PartialLidarMessage* currentLidarMessage; // Pointer to single PartialLidarMessage
+struct PartialLidarMessage* currentLidarMessage;
 
-uint16_t partialListSize = 0;
-struct PartialLidarMessage** partialSectorScanDataList; // Array of PartialLidarMessage Pointers
+Vector(struct PartialLidarMessage) partialSectorScanDataList;
 
 struct BufferData bufferData;
 struct LastGeneratedTimestamp lastGeneratedTimestamp;
@@ -101,63 +82,26 @@ const uint8_t SIZE_OF_RELATIVE_START_ANGLE = 2;
 const uint8_t SIZE_OF_INTENSITY = 1;
 const uint8_t SIZE_OF_LIDAR_POINT = SIZE_OF_DISTANCE + SIZE_OF_RELATIVE_START_ANGLE + SIZE_OF_INTENSITY;
 
+bool parserIsInit = false;
 bool memoryAllocatedForCurrentMessage = false;
-bool memoryAllocatedForPartialScanList = false;
-
-// Points to function passed in that has a reference to a complete lidar message as input
-// Returns nothing
-void (*onCompleteLidarMessageCallback)(struct CompleteLidarMessage* message);
 
 //---------------------------------------------------------------------------------------------
 //--------------------Memory Management--------------------------------------------------------
 //---------------------------------------------------------------------------------------------
-void mallocPartialScanList()
-{
-    if(!memoryAllocatedForPartialScanList)
-    {
-        partialSectorScanDataList = malloc(sizeof(*partialSectorScanDataList));
-        memoryAllocatedForPartialScanList = true;
-    }
-}
-
 void clearPartialScanList()
 {
-    if(memoryAllocatedForPartialScanList)
+    if(!vectorEmpty(partialSectorScanDataList))
     {
-        for(uint64_t i = 0; i < partialListSize; i++)
+
+        for(Sector* it = vectorBegin(partialSectorScanDataList); it != vectorEnd(partialSectorScanDataList); ++it)
         {
-            free(partialSectorScanDataList[i]->lidarPoints); // Free all lidar points
-            free(partialSectorScanDataList[i]); // Free memory for each message pointer in list
+            if(!vectorEmpty(it->lidarPoints))
+            {
+                vectorFree(it->lidarPoints); // Free all lidar points
+            }
         }
-        free(partialSectorScanDataList); // Free all memory in list
-        partialListSize = 0;
-        memoryAllocatedForPartialScanList = false;
+        vectorFree(partialSectorScanDataList); // Free all memory in list
     }
-}
-
-void incrementPartialScanList()
-{
-    if(memoryAllocatedForPartialScanList)   // Can only reallocate memory if allocation already exists
-    {
-        uint64_t allocSize = partialListSize + 1;
-        partialSectorScanDataList = realloc(partialSectorScanDataList, allocSize * sizeof(*partialSectorScanDataList));
-
-    }
-}
-
-void insertCurrentMessageIntoPartialScanList()
-{
-    // Ensure memory for Partial Scan List has been allocated
-    mallocPartialScanList();
-
-    // Allocate memory for the current lidar message to go in the list
-    partialSectorScanDataList[partialListSize] = malloc(sizeof(*currentLidarMessage));
-
-    // Copy the current lidar message into the list
-    *partialSectorScanDataList[partialListSize] = *currentLidarMessage;
-
-    // Grow list size by 1 and ready to index future lidar message
-    partialListSize++;
 }
 
 // Current Lidar Message Memory Management
@@ -183,13 +127,14 @@ void clearCurrentLidarMessage()
 //---------------------------------------------------------------------------------------------
 //------------------------Parser Functions-----------------------------------------------------
 //---------------------------------------------------------------------------------------------
-void initParser(void (*message_callback)(struct CompleteLidarMessage *completeMessage))
+void initParser(void (*message_callback)(struct CompleteLidarMessage *))
 {
     onCompleteLidarMessageCallback = message_callback;
-    reset();
+    resetParser();
+    parserIsInit = true;
 }
 
-void reset()
+void resetParser()
 {
     lastGeneratedTimestamp.validTimestamp = false;
 }
@@ -342,15 +287,14 @@ bool doesChecksumMatch()
     return newChecksum == currentLidarMessage->checksum;
 }
 
-int getTotalPointsOfAllPartialScans()
+uint32_t getTotalPointsOfAllPartialScans()
 {
-    int totalPoints = 0;
-    for(uint64_t i = 0; i < partialListSize; i++)
+    uint32_t totalPoints = 0;
+    for(Sector* it = vectorBegin(partialSectorScanDataList); it != vectorEnd(partialSectorScanDataList); ++it)
     {
-        struct PartialLidarMessage* sector = partialSectorScanDataList[i];
-        totalPoints += sector->numPoints;
+        totalPoints += it->numPoints;
     }
-    return 0;
+    return totalPoints;
 }
 
 bool isScanComplete()
@@ -360,14 +304,14 @@ bool isScanComplete()
 
 void createAndPublishCompleteScan()
 {
-    if(partialListSize <= 0)
+    if(vectorEmpty(partialSectorScanDataList))
     {
         return;
     }
 
-    struct PartialLidarMessage* firstMessage = partialSectorScanDataList[0];
+    struct PartialLidarMessage firstMessage = partialSectorScanDataList[0];
     // We will not ship the information from the first revolution, as it will not have a valid timestamp.
-    if (!firstMessage->generatedTimestamp.validTimestamp)
+    if (!firstMessage.generatedTimestamp.validTimestamp)
     {
         clearPartialScanList();
         return;
@@ -375,30 +319,20 @@ void createAndPublishCompleteScan()
 
     struct CompleteLidarMessage lidarMessage;
 
-    lidarMessage.totalPoints = firstMessage->numPointsInSector;
-    lidarMessage.endAngle = firstMessage->deviceNumber;
-    lidarMessage.startAngle = firstMessage->startAngle / 1000;
-    lidarMessage.endAngle = firstMessage->endAngle / 1000;
-    lidarMessage.timestamp_us = firstMessage->generatedTimestamp.timestamp_us;
-    lidarMessage.sensorPropertyFlags = firstMessage->sensorPropertyFlags;
-
-    uint64_t totalCompletePoints = getTotalPointsOfAllPartialScans();
-
-    // Allocate enough memory to store all points for a complete scan
-    lidarMessage.lidarPoints = malloc(totalCompletePoints * sizeof(*lidarMessage.lidarPoints));
-
-    // track which point is added to lidarPoints in lidarMessage
-    uint64_t lidarPointIndex = 0;
+    lidarMessage.totalPoints = firstMessage.numPointsInSector;
+    lidarMessage.endAngle = firstMessage.deviceNumber;
+    lidarMessage.startAngle = firstMessage.startAngle / 1000;
+    lidarMessage.endAngle = firstMessage.endAngle / 1000;
+    lidarMessage.timestamp_us = firstMessage.generatedTimestamp.timestamp_us;
+    lidarMessage.sensorPropertyFlags = firstMessage.sensorPropertyFlags;
 
     // Add all points in sectors to lidarPoints in lidarMessage
-    for(uint64_t i = 0; i < partialListSize; i++)
+    for(Sector* it = vectorBegin(partialSectorScanDataList); it != vectorEnd(partialSectorScanDataList); ++it)
     {
-        struct PartialLidarMessage* sector = partialSectorScanDataList[i];
-        for(uint64_t j = 0; j < sector->numPoints; j++)
+        for(uint64_t j = 0; j < it->numPoints; j++)
         {
-            struct LidarPoint lidarPoint = sector->lidarPoints[j];
-            lidarMessage.lidarPoints[lidarPointIndex] = lidarPoint;
-            lidarPointIndex++;
+            struct LidarPoint lidarPoint = it->lidarPoints[j];
+            vectorPushBack(lidarMessage.lidarPoints, lidarPoint);
         }
     }
 
@@ -406,30 +340,17 @@ void createAndPublishCompleteScan()
     clearPartialScanList();
 }
 
-int parseLidarDataFromBuffer()
+uint32_t parseLidarDataFromBuffer()
 {
     clearCurrentLidarMessage();
     mallocCurrentLidarMessage();
     parsePartialScan(); // Fill in currentLidarMessage
-
-    if(!memoryAllocatedForPartialScanList)
-    {
-        mallocPartialScanList();
-    }
-    else
-    {
-        // Adding current message into existing partial list. Therefore, reallocate
-        // to increase number of memory blocks by 1 for a partial scan message
-        incrementPartialScanList();
-    }
-
-    insertCurrentMessageIntoPartialScanList();
+    vectorPushBack(partialSectorScanDataList, *currentLidarMessage);
 
     if(isScanCorrupt())
     {
         clearPartialScanList();
-        mallocPartialScanList();
-        insertCurrentMessageIntoPartialScanList();
+        vectorPushBack(partialSectorScanDataList, *currentLidarMessage);
     }
 
     if (isScanComplete())
@@ -455,8 +376,14 @@ bool isAlarmMessage()
     return header == ALARM_MESSAGE_HEADER;
 }
 
-int parse(const struct BufferData* newBufferData)
+uint32_t parse(const struct BufferData* newBufferData)
 {
+    if(parserIsInit)
+    {
+        DebugP_log("\nParser is not yet initialized");
+        return 0;
+    }
+
     bufferData = *newBufferData;
 
     parseHeader();

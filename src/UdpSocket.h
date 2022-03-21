@@ -43,27 +43,9 @@
 #include "Bool.h"
 #include "Shared.h"
 
-#define UDP_CONN_PORT 5001        // server port to listen on/connect to
-
 #ifndef MAX_BUFFER_LENGTH
 #define MAX_BUFFER_LENGTH 8192
 #endif
-
-struct UdpInstance
-{
-    int socket;
-    int (*getSocket)();
-    void (*write)(struct InetAddress* destinationAddress, struct BufferData* bufferData);
-    int (*read)(struct BufferData* bufferData, int bufferMaxSize);
-    uint8_t (*sendMessage)(struct InetAddress* destinationAddress, struct BufferData* bufferData,
-            char* response, uint64_t timeout_ms);
-
-    void (*open)();
-    void (*close)();
-    void (*closeThisSocket)(int* socket);
-};
-
-void print_app_header(void);
 
 int getSocket();
 
@@ -76,14 +58,12 @@ bool udpSocketSendMessage(struct InetAddress* destinationAddress,
                           struct BufferData* bufferData, char* response,
                           uint64_t timeout_ms);
 
-void udpSocketOpen();
+bool udpSocketOpen(uint16_t srcPort); // UDP_CONN_PORT
 
 void udpSocketClose();
 
 void udpCloseThisSocket(int* socket);
 
-bool isConnected();
-
-struct UdpInstance* UdpInstance_new();
+bool socketIsOpen();
 
 #endif /* __UDPSOCKET_H_ */

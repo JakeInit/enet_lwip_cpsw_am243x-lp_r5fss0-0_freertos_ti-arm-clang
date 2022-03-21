@@ -11,6 +11,7 @@
 #include "lwip/inet.h"
 
 #include "Bool.h"
+#include "Vector.h"
 
 #ifndef MAX_BUFFER_LENGTH
 #define MAX_BUFFER_LENGTH 8192
@@ -19,7 +20,7 @@
 // UDP Structs
 struct BufferData
 {
-    char buffer[MAX_BUFFER_LENGTH];
+    char* buffer;
     unsigned int length;
 };
 
@@ -47,6 +48,12 @@ struct LidarPoint
     uint8_t intensity;
 };
 
+struct LastGeneratedTimestamp
+{
+    bool validTimestamp;
+    uint64_t timestamp_us;
+};
+
 struct CompleteLidarMessage
 {
     uint16_t totalPoints;
@@ -58,8 +65,27 @@ struct CompleteLidarMessage
     uint64_t timestamp_us;
     uint32_t deviceNumber;
 
-    uint32_t numberOfLidarPoints;
-    struct LidarPoint* lidarPoints;
+    Vector(struct LidarPoint) lidarPoints;
+};
+
+struct PartialLidarMessage
+{
+    uint16_t numPoints;
+    uint16_t numPointsInSector;
+    uint16_t sectorDataOffset;
+
+    uint32_t startAngle;
+    uint32_t endAngle;
+
+    struct LidarSensorProperties sensorPropertyFlags;
+
+    struct LastGeneratedTimestamp generatedTimestamp;
+    uint32_t timestamp;
+    uint32_t deviceNumber;
+
+    Vector(struct LidarPoint) lidarPoints;
+
+    uint16_t checksum;
 };
 
 // Polar Structs
@@ -72,7 +98,7 @@ struct PointPolar
 
 struct ScanDataPolar
 {
-    struct PointPolar* polarPointsList;
+    Vector(struct PointPolar) polarPointsList;
     uint32_t listSize;
     uint64_t timestamp_us;
 };

@@ -39,26 +39,6 @@
 
 int socket = 0;
 
-struct UdpInstance* UdpInstance_new()
-{
-    struct UdpInstance* instance = malloc(sizeof(*instance));
-    instance->socket = 0;
-    instance->getSocket = getSocket;
-    instance->open = udpSocketOpen;
-    instance->close = udpSocketClose;
-    instance->closeThisSocket = udpCloseThisSocket;
-    instance->read = udpSocketRead;
-    instance->write = udpSocketWrite;
-    instance->sendMessage = udpSocketSendMessage;
-
-    return instance;
-}
-
-void print_app_header(void)
-{
-	DebugP_log("UDP server listening on port %d\r\n", UDP_CONN_PORT);
-}
-
 int getSocket()
 {
     return socket;
@@ -87,7 +67,7 @@ void udpSocketWrite(struct InetAddress* destinationAddress, struct BufferData* b
 
 int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize)
 {
-    if(!isConnected())
+    if(!socketIsOpen())
     {
         return 0;
     }
@@ -96,7 +76,7 @@ int udpSocketRead(struct BufferData* bufferData, int bufferMaxSize)
 	struct sockaddr_in addr;
 	socklen_t fromlen = sizeof(addr);
 
-    numBytes = recvfrom(socket, bufferData->buffer, MAX_BUFFER_LENGTH, 0,
+    numBytes = recvfrom(socket, bufferData->buffer, bufferData->length, 0,
                              (struct sockaddr *)&addr, &fromlen);
     if(numBytes <= 0)
     {
@@ -110,7 +90,7 @@ bool udpSocketSendMessage(struct InetAddress* destinationAddress,
                           struct BufferData* bufferData, char* response,
                           uint64_t timeout_ms)
 {
-    if(!isConnected())
+    if(!socketIsOpen())
     {
         return false;
     }
@@ -148,7 +128,7 @@ bool udpSocketSendMessage(struct InetAddress* destinationAddress,
     return false;
 }
 
-void udpSocketOpen()
+bool udpSocketOpen(uint16_t srcPort)
 {
 	err_t err;
 	struct sockaddr_in addr;
@@ -157,12 +137,12 @@ void udpSocketOpen()
 	if (socket <= 0)
 	{
 		DebugP_log("UDP server: Error creating Socket\r\r\n");
-		return;
+		return false;
 	}
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(UDP_CONN_PORT);     // srcPort
+	addr.sin_port = htons(srcPort);     // UDP_CONN_PORT
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	err = bind(socket, (struct sockaddr *)&addr, sizeof(addr));
@@ -170,8 +150,10 @@ void udpSocketOpen()
 	{
 		DebugP_log("UDP server: Error on bind: %d\r\r\n", err);
 		udpSocketClose();
-		return;
+		return false;
 	}
+
+	return true;
 }
 
 void udpSocketClose()
@@ -181,11 +163,14 @@ void udpSocketClose()
 
 void udpCloseThisSocket(int* socket)
 {
-    close(*socket);
-    socket = 0;
+    if(socketIsOpen())
+    {
+        close(*socket);
+        socket = 0;
+    }
 }
 
-bool isConnected()
+bool socketIsOpen()
 {
     if(socket == 0)
     {

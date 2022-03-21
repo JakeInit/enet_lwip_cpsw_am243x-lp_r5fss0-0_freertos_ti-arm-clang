@@ -13,10 +13,10 @@
 
 #include "Shared.h"
 
-void initParser(void (*message_callback)(struct CompleteLidarMessage *completeMessage));
+void initParser(void (*message_callback)(struct CompleteLidarMessage*));
 
-int parse(const struct BufferData* bufferData);
+uint32_t parse(const struct BufferData* bufferData);
 
-void reset();
+void resetParser();
 
 #endif /* SRC_PARSER_H_ */

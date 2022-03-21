@@ -2,7 +2,7 @@
  * parakeetDriver.h
  *
  *  Created on: Mar 11, 2022
- *      Author: root
+ *      Author: Jacob Morgan
  */
 
 #ifndef SRC_PARAKEETDRIVER_H_
@@ -71,7 +71,7 @@ enum ScanningFrequency
 
 struct SensorConfiguration
 {
-    char ipAddress[INET_ADDRSTRLEN];
+    char* ipAddress;
     uint16_t dstPort;
     uint16_t srcPort;
     bool intensity;
@@ -107,12 +107,15 @@ struct SensorConfiguration* SensorConfiguration_new(const char* ipAddress, uint1
                                                     bool dataSmoothing, bool dragPointRemoval,
                                                     bool resampleFilter);
 
-// start parser and register update thread callback
+/// \brief Start parser and register update thread callback
 void initParakeetDriver();
+
+/// \brief Stop sensor and close the sensor connection
+void shutdownParakeetDriver();
 
 /// \brief Attempt connection to a Parakeet sensor through a ethernet port
 /// \param[in] sensorConfiguration - Sensor settings and ethernet port information
-void connectSensor(const struct SensorConfiguration* sensorConfiguration);
+void connectSensor(struct SensorConfiguration* newSensorConfiguration);
 
 /// \brief Start the Driver's processing thread
 void startSensor();
@@ -121,7 +124,7 @@ void startSensor();
 void stopSensor();
 
 /// \brief Close the ethernet connection
-void closeSensor();
+void closeSensorConnection();
 
 /// \brief Gets the scan rate from the sensor
 /// \returns The scan rate
@@ -163,18 +166,30 @@ bool isDragPointRemovalEnabled();
 /// \param[in] enable - The state of the resample filter
 void enableResampleFilter(bool enable);
 
+/// \brief Gets the state of the resample filter
+/// \returns The state of the resample filter
+bool isResampleFilterEnabled();
+
+/// \brief Set the IP address and port for the sensor. Messages to the sensor will be sent to this address.
+/// \param[in] ipAdress - The IP Address the sensor will live on, as an array of four bytes
+/// \param[in] subnetMask - The subnet mask the sensor will live on, as an array of four bytes
+/// \param[in] gateway - The gateway the sensor will live on, as an array of four bytes
+/// \param[in] port - The port that the sensor will be listening on
+void setSensorIPv4Settings(uint8_t* ipAddress, uint8_t* subnetMask, uint8_t* gateway, uint16_t port);
+
+/// \brief Set the IP address and port for the sensor to publish data to. Messages from the sensor will be received by this address.
+/// \param[in] ipAdress - The IP Address the sensor will send messages to, as an array of four bytes
+/// \param[in] port - The port that the sensor will be sending messages to
+void setSensorDestinationIPv4Settings(uint8_t* ipAddress, uint16_t port);
+
 /// \brief Set a function to be called when scan data is received from the sensor
 /// \param[in] callback - The function to be called when data is received
 void registerScanCallback(void (*callback)(struct ScanDataPolar*));
 
-void registerUpdateThreadCallback(void (*callback)());
-
 void assertIsConnected();
-
-bool isConnected();
 
 bool isRunning();
 
-void onScanDataReceived(struct ScanData* scanData, uint32_t scanSize);
+void onScanDataReceived(struct ScanData* scanData);
 
 #endif /* SRC_PARAKEETDRIVER_H_ */

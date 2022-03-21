@@ -95,9 +95,16 @@
 #define LWIP_EXAMPLE_APP_ABORT() 0
 #endif
 
+#define UDP_CONN_PORT 5001        // server port to listen on/connect to
+
 /* global variables for network interfaces*/
 struct dhcp netif_dhcp;     // DHCP struct for the ethernet netif
 struct autoip netif_autoip; // AUTOIP struct for the ethernet netif
+
+void print_app_header(void)
+{
+    DebugP_log("UDP server listening on port %d\r\n", UDP_CONN_PORT);
+}
 
 static void status_callback(struct netif *state_netif)
 {
@@ -152,14 +159,6 @@ static void initNetIF(void)
   LWIP_ASSERT("dhcp_start failed", err == ERR_OK);
 }
 
-/* Startup UDP Server and Create Socket */
-static void initUdpServer(void)
-{
-  print_app_header();
-//  sys_thread_new("UDP Iperf", udpSocketOpen, NULL, DEFAULT_THREAD_STACKSIZE,
-//                             DEFAULT_THREAD_PRIO);
-}
-
 /* This function initializes the UDP server and all network interfaces  */
 static void initialize(void * arg)
 {
@@ -173,7 +172,9 @@ static void initialize(void * arg)
   srand((unsigned int)sys_now()/1000);
 
   initNetIF();
-  initUdpServer();
+  print_app_header();
+//  sys_thread_new("UDP Iperf", udpSocketOpen, NULL, DEFAULT_THREAD_STACKSIZE,
+//                             DEFAULT_THREAD_PRIO);
 
   sys_sem_signal(init_sem);
 }
@@ -197,6 +198,7 @@ void runParakeetApplication(void * a0)
   // ------------------------------------------------------------------------------------------
   //                          INITIALIZE PARAKEET DRIVER HERE
   // ------------------------------------------------------------------------------------------
+
 
   /* MAIN LOOP for Parakeet Execution */
   while (!LWIP_EXAMPLE_APP_ABORT())
